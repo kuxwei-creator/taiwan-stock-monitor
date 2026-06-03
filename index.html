@@ -3,254 +3,164 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>台股大盤與關鍵風控訊號監測</title>
+    <title>台股大盤風控決策儀表板 (半自動版)</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen p-4 md:p-8">
 
-    <div class="max-w-6xl mx-auto">
+    <div class="max-w-5xl mx-auto">
         <header class="mb-8 border-b border-gray-700 pb-4">
             <h1 class="text-3xl font-bold text-white flex items-center gap-2">
-                📈 台股大盤與關鍵風控訊號即時監測
+                📊 台股大盤風控決策儀表板 <span class="text-xs bg-blue-600 text-white px-2 py-0.5 rounded">半自動控制版</span>
             </h1>
-            <p class="text-sm text-gray-400 mt-2" id="update-time">網頁載入中...</p>
+            <p class="text-sm text-gray-400 mt-2">請手動填入當前市場數據，系統將自動進行多空與槓桿風險評估。</p>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 shadow-md">
-                <div class="text-sm text-gray-400 font-medium">加權指數最新收盤</div>
-                <div class="text-2xl font-bold mt-1 text-white" id="twii-price">--</div>
-            </div>
-            <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 shadow-md">
-                <div class="text-sm text-gray-400 font-medium">大盤成交金額</div>
-                <div class="text-2xl font-bold mt-1 text-white" id="twii-volume">--</div>
-            </div>
-            <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 shadow-md">
-                <div class="text-sm text-gray-400 font-medium">估計融資餘額水位</div>
-                <div class="text-2xl font-bold mt-1 text-white" id="margin-balance">--</div>
-                <div class="text-xs text-gray-500 mt-1">（依市場趨勢估算）</div>
-            </div>
-            <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 shadow-md">
-                <div class="text-sm text-gray-400 font-medium">台積電收盤價</div>
-                <div class="text-2xl font-bold mt-1 text-white" id="tsmc-price">--</div>
-            </div>
-        </div>
-
-        <h2 class="text-xl font-semibold mb-4 text-gray-200">🚨 轉折下行風控訊號檢查</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
             
-            <div class="bg-gray-800 p-6 rounded-lg border border-gray-700 flex flex-col justify-between">
-                <div>
-                    <h3 class="text-lg font-bold text-white mb-2">1. 指數是否跌破季線</h3>
-                    <p class="text-sm text-gray-300" id="signal-1-info">正在計算季線 (60MA)...</p>
+            <div class="bg-gray-800 p-6 rounded-lg border border-gray-700 shadow-md md:col-span-1">
+                <h2 class="text-xl font-semibold mb-4 text-blue-400 border-b border-gray-700 pb-2">✏️ 輸入今日數據</h2>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">加權指數最新收盤</label>
+                        <input type="number" id="input-twii" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500" value="43636" placeholder="例如: 43636">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">大盤當前季線 (60MA)</label>
+                        <input type="number" id="input-twii-ma" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500" value="41500" placeholder="例如: 41500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">大盤今日融資變動趨勢</label>
+                        <select id="input-margin" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+                            <option value="normal">✅ 正常 (隨大盤漲跌或持續減少)</option>
+                            <option value="divergent">❌ 危險背離 (指數大跌，但融資死不退反增)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">台積電最新股價</label>
+                        <input type="number" id="input-tsmc" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500" value="2295" placeholder="例如: 2295">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">台積電關鍵防守位 (季線)</label>
+                        <input type="number" id="input-tsmc-ma" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500" value="2120" placeholder="例如: 2120">
+                    </div>
+                    
+                    <button onclick="calculateRisk()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded transition duration-200 mt-2 shadow-lg cursor-pointer">
+                        🚀 開始風控指標評估
+                    </button>
                 </div>
-                <div class="mt-4 px-3 py-2 rounded text-sm text-center font-bold" id="signal-1-status">檢測中...</div>
             </div>
 
-            <div class="bg-gray-800 p-6 rounded-lg border border-gray-700 flex flex-col justify-between">
-                <div>
-                    <h3 class="text-lg font-bold text-white mb-2">2. 大盤融資背離檢查</h3>
-                    <p class="text-sm text-gray-300">檢查高檔區間是否出現「指數下跌、融資不退反增」的散戶踩踏前兆。</p>
+            <div class="md:col-span-2 space-y-6">
+                
+                <div class="p-6 rounded-lg border border-gray-700 shadow-lg transition-colors duration-300" id="risk-card">
+                    <h2 class="text-2xl font-bold mb-2 flex items-center gap-2">
+                        📊 綜合風險燈號評估：<span id="risk-title">未評估</span>
+                    </h2>
+                    <p class="text-base leading-relaxed" id="risk-text">請填寫左側數據並點擊評估按鈕。</p>
                 </div>
-                <div class="mt-4 px-3 py-2 rounded text-sm text-center font-bold bg-green-900/40 text-green-400 border border-green-700" id="signal-2-status">
-                    ✅ 安全：結構未背離
+
+                <h3 class="text-lg font-semibold text-gray-300">🚨 分項訊號檢查結果</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    
+                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700">
+                        <h4 class="font-bold text-sm text-gray-400 mb-2">1. 大盤生命線檢查</h4>
+                        <div id="status-1" class="text-sm font-semibold p-2 rounded text-center bg-gray-700 text-gray-300">等待評估</div>
+                    </div>
+
+                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700">
+                        <h4 class="font-bold text-sm text-gray-400 mb-2">2. 籌碼籌資背離</h4>
+                        <div id="status-2" class="text-sm font-semibold p-2 rounded text-center bg-gray-700 text-gray-300">等待評估</div>
+                    </div>
+
+                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700">
+                        <h4 class="font-bold text-sm text-gray-400 mb-2">3. 權值總司令防線</h4>
+                        <div id="status-3" class="text-sm font-semibold p-2 rounded text-center bg-gray-700 text-gray-300">等待評估</div>
+                    </div>
+
                 </div>
+
             </div>
-
-            <div class="bg-gray-800 p-6 rounded-lg border border-gray-700 flex flex-col justify-between">
-                <div>
-                    <h3 class="text-lg font-bold text-white mb-2">3. 台積電關鍵支撐</h3>
-                    <p class="text-sm text-gray-300" id="signal-3-info">正在確認台積電技術面防守位...</p>
-                </div>
-                <div class="mt-4 px-3 py-2 rounded text-sm text-center font-bold" id="signal-3-status">檢測中...</div>
-            </div>
-
-        </div>
-
-        <div class="bg-gray-800 p-6 rounded-lg border border-gray-700 shadow-lg mb-8" id="risk-card">
-            <h2 class="text-xl font-bold mb-2">📊 綜合風險燈號評估</h2>
-            <p class="text-base" id="risk-text">正在評估整體市場風險水準...</p>
-        </div>
-        
-        <div class="bg-gray-800 p-6 rounded-lg border border-gray-700 shadow-lg">
-            <h2 class="text-xl font-bold mb-4">📈 大盤趨勢與均線</h2>
-            <div id="chart"></div>
         </div>
     </div>
 
     <script>
-        document.getElementById('update-time').innerText = `數據最後同步時間: ${new Date().toLocaleString('zh-TW')}`;
+        function calculateRisk() {
+            // 讀取手動輸入的數值
+            const twii = parseFloat(document.getElementById('input-twii').value);
+            const twiiMa = parseFloat(document.getElementById('input-twii-ma').value);
+            const marginValue = document.getElementById('input-margin').value;
+            const tsmc = parseFloat(document.getElementById('input-tsmc').value);
+            const tsmcMa = parseFloat(document.getElementById('input-tsmc-ma').value);
 
-        // ========================================================
-        // ⚠️ 請在下方雙引號內填入您獲取的 FMP API KEY ⚠️
-        // ========================================================
-        const FMP_API_KEY = "WRqf8S9jmeqgCNMfLeoOjMtUkz6WFsjJ";
-        // ========================================================
-
-        // 改用新版支援新用戶的 2026 最新官方 API 路徑 (v3/historical-price-full 已對免費版修正)
-        async function getStockDataFMP(ticker) {
-            // 使用新版帶有專用格式的 query
-            const url = `https://financialmodelingprep.com/api/v3/historical-price-full/${ticker}?apikey=${FMP_API_KEY}`;
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
-                if (data && data.historical) {
-                    // 免費帳戶最多取前 100 天，足夠計算 60MA 季線
-                    return data.historical.slice(0, 90);
-                }
-                return null;
-            } catch (error) {
-                console.error(`抓取 FMP ${ticker} 失敗:`, error);
-                return null;
-            }
-        }
-
-        // 計算移動平均線 (MA)
-        function calculateMA(prices, windowSize) {
-            let ma = [];
-            for (let i = 0; i < prices.length; i++) {
-                if (i < windowSize - 1) {
-                    ma.push(null);
-                } else {
-                    let sum = 0;
-                    for (let j = 0; j < windowSize; j++) {
-                        sum += prices[i - j];
-                    }
-                    ma.push(sum / windowSize);
-                }
-            }
-            return ma;
-        }
-        
-        // 渲染圖表
-        function renderChart(dates, prices, ma60) {
-            const validData = dates.map((date, index) => {
-                return {
-                    x: new Date(date).getTime(),
-                    y: prices[index]
-                }
-            });
-
-            const maData = dates.map((date, index) => {
-                return {
-                    x: new Date(date).getTime(),
-                    y: ma60[index] ? parseFloat(ma60[index].toFixed(2)) : null
-                }
-            }).filter(item => item.y !== null);
-
-            var options = {
-                series: [{
-                    name: '大盤收盤價',
-                    type: 'line',
-                    data: validData,
-                    color: '#3B82F6'
-                }, {
-                    name: '60MA (季線)',
-                    type: 'line',
-                    data: maData,
-                    color: '#EF4444'
-                }],
-                chart: {
-                    height: 350,
-                    type: 'line',
-                    toolbar: { show: false }
-                },
-                stroke: { width: [3, 2], curve: 'smooth' },
-                xaxis: { type: 'datetime' },
-                yaxis: { forceNiceScale: true },
-                grid: { borderColor: '#374151' },
-                tooltip: { theme: 'dark' }
-            };
-
-            var chart = new ApexCharts(document.querySelector("#chart"), options);
-            chart.render();
-        }
-
-        async function initDashboard() {
-            if (FMP_API_KEY === "您的" + "API_KEY" || FMP_API_KEY === "") {
-                document.getElementById('risk-text').innerText = "⚠️ 錯誤：尚未填入 FMP API KEY。請在代碼中第 112 行進行替換。";
+            // 驗證欄位
+            if (isNaN(twii) || isNaN(twiiMa) || isNaN(tsmc) || isNaN(tsmcMa)) {
+                alert("請確認所有數值欄位皆已填寫正確！");
                 return;
             }
 
-            // 抓取大盤與台積電
-            const twiiHistorical = await getStockDataFMP('%5ETWII'); // 大盤符號編碼處理
-            const tsmcHistorical = await getStockDataFMP('2330.TW');
-
-            if (!twiiHistorical || twiiHistorical.length === 0 || !tsmcHistorical || tsmcHistorical.length === 0) {
-                document.getElementById('risk-text').innerText = "⚠️ 數據解析失敗。請確認您的 API KEY 是否正確填寫，或稍後重新整理。";
-                return;
-            }
-
-            // 1. 大盤數據處理 (API 回傳預設是最新在最前，需 reverse 算 MA)
-            const twiiDataLatest = twiiHistorical[0];
-            const twiiClosePrices = twiiHistorical.map(item => item.close).reverse();
-            const twiiDates = twiiHistorical.map(item => item.date).reverse();
-
-            const twiiMA60 = calculateMA(twiiClosePrices, 60);
-            const currentTwiiMA60 = twiiMA60[twiiMA60.length - 1];
-
-            document.getElementById('twii-price').innerText = `${twiiDataLatest.close.toFixed(2)} 點`;
-            document.getElementById('twii-volume').innerText = `${(twiiDataLatest.volume / 100000000).toFixed(2)} 億股`;
-            document.getElementById('margin-balance').innerText = `5,350 億元`;
-
-            // 2. 台積電數據處理
-            const tsmcDataLatest = tsmcHistorical[0];
-            const tsmcClosePrices = tsmcHistorical.map(item => item.close).reverse();
-
-            const tsmcMA60 = calculateMA(tsmcClosePrices, 60);
-            const currentTsmcMA60 = tsmcMA60[tsmcMA60.length - 1];
-
-            document.getElementById('tsmc-price').innerText = `${tsmcDataLatest.close.toFixed(1)} 元`;
-
-            // 3. 判斷三大訊號
             let riskScore = 0;
 
-            // 訊號 1：大盤季線
-            const s1Status = document.getElementById('signal-1-status');
-            document.getElementById('signal-1-info').innerText = `當前指數：${twiiDataLatest.close.toFixed(2)}\n當前季線(60MA)：${currentTwiiMA60.toFixed(2)}`;
-            if (twiiDataLatest.close < currentTwiiMA60) {
+            // 1. 檢查大盤季線
+            const status1 = document.getElementById('status-1');
+            if (twii < twiiMa) {
                 riskScore++;
-                s1Status.innerText = "❌ 警告：已跌破季線";
-                s1Status.className = "mt-4 px-3 py-2 rounded text-sm text-center font-bold bg-red-900/40 text-red-400 border border-red-700";
+                status1.innerText = "❌ 跌破季線 (空頭)";
+                status1.className = "text-sm font-bold p-2 rounded text-center bg-red-900/40 text-red-400 border border-red-700";
             } else {
-                s1Status.innerText = "✅ 安全：季線之上";
-                s1Status.className = "mt-4 px-3 py-2 rounded text-sm text-center font-bold bg-green-900/40 text-green-400 border border-green-700";
+                status1.innerText = "✅ 季線之上 (多頭)";
+                status1.className = "text-sm font-bold p-2 rounded text-center bg-green-900/40 text-green-400 border border-green-700";
             }
 
-            // 訊號 3：台積電支撐
-            const s3Status = document.getElementById('signal-3-status');
-            document.getElementById('signal-3-info').innerText = `台積電現價：${tsmcDataLatest.close.toFixed(1)}\n季線防守位：${currentTsmcMA60.toFixed(1)}`;
-            if (tsmcDataLatest.close < currentTsmcMA60) {
+            // 2. 檢查融資背離
+            const status2 = document.getElementById('status-2');
+            if (marginValue === 'divergent') {
                 riskScore++;
-                s3Status.innerText = "❌ 警告：台積電破季線";
-                s3Status.className = "mt-4 px-3 py-2 rounded text-sm text-center font-bold bg-red-900/40 text-red-400 border border-red-700";
+                status2.innerText = "❌ 出現散戶死不退背離";
+                status2.className = "text-sm font-bold p-2 rounded text-center bg-red-900/40 text-red-400 border border-red-700";
             } else {
-                s3Status.innerText = "✅ 安全：守住技術支撐";
-                s3Status.className = "mt-4 px-3 py-2 rounded text-sm text-center font-bold bg-green-900/40 text-green-400 border border-green-700";
+                status2.innerText = "✅ 籌碼結構正常";
+                status2.className = "text-sm font-bold p-2 rounded text-center bg-green-900/40 text-green-400 border border-green-700";
             }
 
-            // 4. 綜合風險點燈
+            // 3. 檢查台積電
+            const status3 = document.getElementById('status-3');
+            if (tsmc < tsmcMa) {
+                riskScore++;
+                status3.innerText = "❌ 台積電破防 (轉弱)";
+                status3.className = "text-sm font-bold p-2 rounded text-center bg-red-900/40 text-red-400 border border-red-700";
+            } else {
+                status3.innerText = "✅ 台積電守住支撐";
+                status3.className = "text-sm font-bold p-2 rounded text-center bg-green-900/40 text-green-400 border border-green-700";
+            }
+
+            // 4. 綜合風險點燈判定
             const riskCard = document.getElementById('risk-card');
+            const riskTitle = document.getElementById('risk-title');
             const riskText = document.getElementById('risk-text');
 
-            if (riskScore === 2) {
-                riskCard.className = "bg-red-950 p-6 rounded-lg border border-red-700 shadow-lg text-red-200 mb-8";
-                riskText.innerText = "🔴 【極度危險】三大核心空頭訊號已同時觸發！大盤與權值股台積電均跌破季線，市場面臨重大修正，請嚴格控管資金。";
+            if (riskScore === 3) {
+                riskCard.className = "p-6 rounded-lg border border-red-600 shadow-lg bg-red-950 text-red-100";
+                riskTitle.innerText = "🔴 極度危險 (全面崩塌)";
+                riskText.innerText = "🚨 警告：三大風控條件已完全滿足！大盤破線、融資死不退、台積電棄守。這是歷史級大修正（跌幅 20%+）的最核心前兆。強烈建議嚴格控管手頭資金、降低槓桿，甚至分批執行避險與減碼戰術！";
+            } else if (riskScore === 2) {
+                riskCard.className = "p-6 rounded-lg border border-orange-600 shadow-lg bg-orange-950 text-orange-100";
+                riskTitle.innerText = "🟠 高度警覺 (結構鬆動)";
+                riskText.innerText = "⚠️ 注意：目前市場已亮起 2 盞紅燈。多頭的生命防線正在被蠶食。此時不該再盲目追高，請仔細清點手上持股的持倉成本，並做好隨時抽離或分批停利減碼的防守準備。";
             } else if (riskScore === 1) {
-                riskCard.className = "bg-yellow-950 p-6 rounded-lg border border-yellow-700 shadow-lg text-yellow-200 mb-8";
-                riskText.innerText = "🟡 【注意】目前已觸發趨勢轉弱警訊。多頭結構開始鬆動，請謹慎操作、切勿過度開槓桿。";
+                riskCard.className = "p-6 rounded-lg border border-yellow-600 shadow-lg bg-yellow-950 text-yellow-100";
+                riskTitle.innerText = "🟡 局部警戒 (多空震盪)";
+                riskText.innerText = "🔎 提示：目前觸發 1 個空頭警訊，可能屬於高檔的多頭洗盤或技術面修正。此時市場仍有基本面支撐，但操作中小型股時需提高警覺，切勿使用過高融資。";
             } else {
-                riskCard.className = "bg-green-950 p-6 rounded-lg border border-green-700 shadow-lg text-green-200 mb-8";
-                riskText.innerText = "🟢 【安全】目前訊號全數正常。加權指數與台積電均維持在強勢均線之上，結構健康，尚未出現波段大跌轉折點。";
+                riskCard.className = "p-6 rounded-lg border border-green-600 shadow-lg bg-green-950 text-green-100";
+                riskTitle.innerText = "🟢 安全無虞 (多頭續航)";
+                riskText.innerText = "✨ 太棒了！當前數據顯示市場完全符合健康的牛市常態。大盤與台積電皆在生命線上方強勢運行，籌碼面也未有踩踏危機。市場主旋律依舊是多頭掌控，繼續順勢而為即可。";
             }
-            
-            // 5. 渲染大盤趨勢圖
-            renderChart(twiiDates, twiiClosePrices, twiiMA60);
         }
-
-        // 啟動儀表板
-        initDashboard();
+        
+        // 網頁載入時先執行一次初始預設值的評估
+        calculateRisk();
     </script>
 </body>
 </html>
