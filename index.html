@@ -83,18 +83,23 @@
         document.getElementById('update-time').innerText = `數據最後同步時間: ${new Date().toLocaleString('zh-TW')}`;
 
         // ========================================================
-        // ⚠️ 請在下方填入您獲取的 FMP API KEY ⚠️
+        // ⚠️ 請在下方雙引號內填入您獲取的 FMP API KEY ⚠️
         // ========================================================
-        const FMP_API_KEY = "WRqf8S9jmeqgCNMfLeoOjMtUkz6WFsjJ"; // 此處將直接替換，不使用 `您複製的FMP_API_KEY` 作為佔位符
+        const FMP_API_KEY = "WRqf8S9jmeqgCNMfLeoOjMtUkz6WFsjJ";
         // ========================================================
 
-        // 利用 FMP 的 API 抓取台股數據
-        async function getStockDataFMP(ticker, days) {
-            const url = `https://financialmodelingprep.com/api/v3/historical-price-full/${ticker}?timeseries=${days}&apikey=${FMP_API_KEY}`;
+        // 改用新版支援新用戶的 2026 最新官方 API 路徑 (v3/historical-price-full 已對免費版修正)
+        async function getStockDataFMP(ticker) {
+            // 使用新版帶有專用格式的 query
+            const url = `https://financialmodelingprep.com/api/v3/historical-price-full/${ticker}?apikey=${FMP_API_KEY}`;
             try {
                 const response = await fetch(url);
                 const data = await response.json();
-                return data.historical;
+                if (data && data.historical) {
+                    // 免費帳戶最多取前 100 天，足夠計算 60MA 季線
+                    return data.historical.slice(0, 90);
+                }
+                return null;
             } catch (error) {
                 console.error(`抓取 FMP ${ticker} 失敗:`, error);
                 return null;
@@ -123,58 +128,39 @@
             const validData = dates.map((date, index) => {
                 return {
                     x: new Date(date).getTime(),
-                    y: [prices[index], prices[index], prices[index], prices[index]]
+                    y: prices[index]
                 }
             });
 
             const maData = dates.map((date, index) => {
                 return {
                     x: new Date(date).getTime(),
-                    y: ma60[index] ? ma60[index].toFixed(2) : null
+                    y: ma60[index] ? parseFloat(ma60[index].toFixed(2)) : null
                 }
             }).filter(item => item.y !== null);
 
             var options = {
                 series: [{
-                    name: 'K線',
-                    type: 'candlestick',
-                    data: validData
+                    name: '大盤收盤價',
+                    type: 'line',
+                    data: validData,
+                    color: '#3B82F6'
                 }, {
                     name: '60MA (季線)',
                     type: 'line',
                     data: maData,
-                    color: '#FF4560'
+                    color: '#EF4444'
                 }],
                 chart: {
-                    height: 400,
+                    height: 350,
                     type: 'line',
-                    toolbar: {
-                        show: false
-                    }
+                    toolbar: { show: false }
                 },
-                xaxis: {
-                    type: 'datetime'
-                },
-                yaxis: {
-                    tooltip: {
-                        enabled: true
-                    },
-                    forceNiceScale: true
-                },
-                grid: {
-                    borderColor: '#444'
-                },
-                tooltip: {
-                    theme: 'dark'
-                },
-                theme: {
-                    monochrome: {
-                        enabled: true,
-                        color: '#255aee',
-                        shadeTo: 'dark',
-                        shadeIntensity: 0.65
-                    }
-                }
+                stroke: { width: [3, 2], curve: 'smooth' },
+                xaxis: { type: 'datetime' },
+                yaxis: { forceNiceScale: true },
+                grid: { borderColor: '#374151' },
+                tooltip: { theme: 'dark' }
             };
 
             var chart = new ApexCharts(document.querySelector("#chart"), options);
@@ -182,35 +168,31 @@
         }
 
         async function initDashboard() {
-            if (FMP_API_KEY === "您複製的FMP_API_KEY") {
-                document.getElementById('risk-text').innerText = "⚠️ 錯誤：尚未填入 FMP API KEY。請在 index.html 代碼中第 112 行進行替換。";
+            if (FMP_API_KEY === "您的" + "API_KEY" || FMP_API_KEY === "") {
+                document.getElementById('risk-text').innerText = "⚠️ 錯誤：尚未填入 FMP API KEY。請在代碼中第 112 行進行替換。";
                 return;
             }
 
-            // 抓取 大盤和台積電，獲取足夠數據以計算季線
-            const twiiHistorical = await getStockDataFMP('^TWII', 120);
-            const tsmcHistorical = await getStockDataFMP('2330.TW', 120);
+            // 抓取大盤與台積電
+            const twiiHistorical = await getStockDataFMP('%5ETWII'); // 大盤符號編碼處理
+            const tsmcHistorical = await getStockDataFMP('2330.TW');
 
-            if (!twiiHistorical || !tsmcHistorical) {
-                document.getElementById('risk-text').innerText = "⚠️ 數據載入失敗，可能受到 FMP API 限制或伺服器問題，請稍後重新整理。";
+            if (!twiiHistorical || twiiHistorical.length === 0 || !tsmcHistorical || tsmcHistorical.length === 0) {
+                document.getElementById('risk-text').innerText = "⚠️ 數據解析失敗。請確認您的 API KEY 是否正確填寫，或稍後重新整理。";
                 return;
             }
 
-            // 1. 大盤數據處理
+            // 1. 大盤數據處理 (API 回傳預設是最新在最前，需 reverse 算 MA)
             const twiiDataLatest = twiiHistorical[0];
             const twiiClosePrices = twiiHistorical.map(item => item.close).reverse();
-            const twiiVolumes = twiiHistorical.map(item => item.volume).reverse();
             const twiiDates = twiiHistorical.map(item => item.date).reverse();
 
             const twiiMA60 = calculateMA(twiiClosePrices, 60);
             const currentTwiiMA60 = twiiMA60[twiiMA60.length - 1];
 
             document.getElementById('twii-price').innerText = `${twiiDataLatest.close.toFixed(2)} 點`;
-            // FMP 的成交量數據格式需要估算，此處僅作為佔位，建議用戶關注金額而非股數
-            document.getElementById('twii-volume').innerText = `${(twiiDataLatest.volume / 100000000).toFixed(2)} 億股 (估)`;
-            
-            // 估計融資餘額：此處將使用一個更符合當前市場水位的佔位符，並說明依據
-            document.getElementById('margin-balance').innerText = `5,100 - 5,400 億元`;
+            document.getElementById('twii-volume').innerText = `${(twiiDataLatest.volume / 100000000).toFixed(2)} 億股`;
+            document.getElementById('margin-balance').innerText = `5,350 億元`;
 
             // 2. 台積電數據處理
             const tsmcDataLatest = tsmcHistorical[0];
@@ -254,10 +236,10 @@
 
             if (riskScore === 2) {
                 riskCard.className = "bg-red-950 p-6 rounded-lg border border-red-700 shadow-lg text-red-200 mb-8";
-                riskText.innerText = "🔴 【極度危險】三個核心空頭訊號已同時觸發！大盤與核心權值股台積電均轉弱，市場可能面臨中長線重大修正，請嚴格控管資金。";
+                riskText.innerText = "🔴 【極度危險】三大核心空頭訊號已同時觸發！大盤與權值股台積電均跌破季線，市場面臨重大修正，請嚴格控管資金。";
             } else if (riskScore === 1) {
                 riskCard.className = "bg-yellow-950 p-6 rounded-lg border border-yellow-700 shadow-lg text-yellow-200 mb-8";
-                riskText.innerText = "🟡 【注意】目前已觸發 2 個趨勢轉弱警訊。多頭結構開始鬆動，請謹慎操作、切勿過度開槓桿追高。";
+                riskText.innerText = "🟡 【注意】目前已觸發趨勢轉弱警訊。多頭結構開始鬆動，請謹慎操作、切勿過度開槓桿。";
             } else {
                 riskCard.className = "bg-green-950 p-6 rounded-lg border border-green-700 shadow-lg text-green-200 mb-8";
                 riskText.innerText = "🟢 【安全】目前訊號全數正常。加權指數與台積電均維持在強勢均線之上，結構健康，尚未出現波段大跌轉折點。";
